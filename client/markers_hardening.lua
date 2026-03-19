@@ -66,21 +66,30 @@ RegisterCommand('mtj_markers_force', function(_, args)
 end, false)
 
 CreateThread(function()
+  local frameCount = 0
   while true do
     Wait(0)
-    -- Immer DrawOrigin zurücksetzen (andere Ressourcen lassen es manchmal gesetzt)
-    pcall(ClearDrawOrigin)
+    frameCount = frameCount + 1
 
-    if FORCE and Config and Config.Points then
-      local col = (Config.MarkerColor) or { r=0,g=200,b=255,a=210 }
-      local sca = (Config.MarkerScale) or vector3(2.0,2.0,1.2)
-      local sx = sca.x or sca[1] or 2.0
-      local sy = sca.y or sca[2] or 2.0
-      local sz = sca.z or sca[3] or 1.2
+    if FORCE then
+      pcall(ClearDrawOrigin)
 
-      if Config.Points.booking  then local x,y,z=v3(Config.Points.booking);  if x then drawForcedMarker(x,y,z,col,{x=sx,y=sy,z=sz}) end end
-      if Config.Points.theory   then local x,y,z=v3(Config.Points.theory);   if x then drawForcedMarker(x,y,z,col,{x=sx,y=sy,z=sz}) end end
-      if Config.Points.practice then local x,y,z=v3(Config.Points.practice); if x then drawForcedMarker(x,y,z,col,{x=sx,y=sy,z=sz}) end end
+      if Config and Config.Points then
+        local col = (Config.MarkerColor) or { r=0,g=200,b=255,a=210 }
+        local sca = (Config.MarkerScale) or vector3(2.0,2.0,1.2)
+        local sx = sca.x or sca[1] or 2.0
+        local sy = sca.y or sca[2] or 2.0
+        local sz = sca.z or sca[3] or 1.2
+
+        if Config.Points.booking  then local x,y,z=v3(Config.Points.booking);  if x then drawForcedMarker(x,y,z,col,{x=sx,y=sy,z=sz}) end end
+        if Config.Points.theory   then local x,y,z=v3(Config.Points.theory);   if x then drawForcedMarker(x,y,z,col,{x=sx,y=sy,z=sz}) end end
+        if Config.Points.practice then local x,y,z=v3(Config.Points.practice); if x then drawForcedMarker(x,y,z,col,{x=sx,y=sy,z=sz}) end end
+      end
+    else
+      -- In normal mode only reset draw origin every 3 frames to save CPU
+      if frameCount % 3 == 0 then
+        pcall(ClearDrawOrigin)
+      end
     end
   end
 end)

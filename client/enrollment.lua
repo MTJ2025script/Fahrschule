@@ -143,7 +143,7 @@ CreateThread(function()
   dbg(('loop ready @%.2f,%.2f,%.2f id=%.2f exitD=%.2f key=%s/%s'):format(loc.x,loc.y,loc.z,id,exitD,tostring(KEY_PRIMARY),tostring(KEY_CONTEXT)))
 
   while true do
-    Wait(0)
+    Wait(insideZone and 0 or 50)
     local ped = PlayerPedId()
     local p = GetEntityCoords(ped)
     local x,y,z = loc.x+0.0, loc.y+0.0, loc.z+0.0

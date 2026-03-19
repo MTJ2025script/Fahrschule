@@ -370,7 +370,7 @@ end)
 
 CreateThread(function()
     while true do
-        Wait(200)
+        Wait(250)
         if queuedPayload and nowMs() >= uiSuppressUntil then
             dbg('flushing queuedPayload after suppress')
             local q = queuedPayload; queuedPayload = nil
@@ -452,4 +452,34 @@ RegisterNetEvent(RESOURCE..':client:updateLicensePhoto', function(photo)
     end
     dbg('server -> updateLicensePhoto ('..tostring(#photo)..' bytes)')
     safeSendNui({ action = 'updateLicensePhoto', photo = photo })
+end)
+
+-- Fix: Forward theoryOutcome to NUI so the result panel is shown after theory submission.
+-- Triggered by server/main.lua (handleTheoryResultCore) after processing a theory submission.
+-- Parameters: passed (bool), scorePct (0-100), detail (table with ts/category)
+RegisterNetEvent(RESOURCE..':client:theoryOutcome', function(passed, scorePct, detail)
+    dbg('server -> theoryOutcome passed='..tostring(passed)..' pct='..tostring(scorePct))
+    safeSendNui({
+        action   = 'theoryOutcome',
+        passed   = (passed == true),
+        scorePct = tonumber(scorePct) or 0,
+        detail   = type(detail) == 'table' and detail or {}
+    })
+end)
+
+-- Fix: Also forward theoryEnd (fired by server/theorie_result.lua) to NUI.
+-- This is the alternate event path from the duplicate handler in theorie_result.lua.
+-- Contains stats in a nested table: { passed, stats = { scorePct, totalQuestions, ... } }
+RegisterNetEvent(RESOURCE..':client:theoryEnd', function(payload)
+    if type(payload) ~= 'table' then return end
+    local passed   = (payload.passed == true)
+    local st       = type(payload.stats) == 'table' and payload.stats or {}
+    local scorePct = tonumber(st.scorePct or 0)
+    dbg('server -> theoryEnd passed='..tostring(passed)..' pct='..tostring(scorePct))
+    safeSendNui({
+        action   = 'theoryOutcome',
+        passed   = passed,
+        scorePct = scorePct,
+        detail   = { ts = os.time and os.time() or 0 }
+    })
 end)

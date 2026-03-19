@@ -55,6 +55,7 @@ let isBooking = false;
 let lastUiConfig = null;
 let currentSection = null; // 'menu' | 'theory' | 'result'
 let lastShownTheoryTs = 0;
+let _awaitingTheoryResult = false; // set when submitTheory() fires, cleared when result is shown
 
 /* ========= Branding ========= */
 const CFG = (window.MTJ_CONFIG = window.MTJ_CONFIG || {});
@@ -487,7 +488,7 @@ function setTitles(passed){
                                   : ((labels && labels.FailSub) || 'Bitte versuche es erneut. Unten siehst du deine Fehler.');
   const el = document.getElementById('result-errors-title'); if (el) el.textContent = (labels && labels.errorListTitle) || 'Deine Fehler';
 }
-function renderStats(totalErrors, allowed, durationSec){
+function renderStats(totalErrors, allowed, durationSec, scorePct){
   const statsEl = document.getElementById('result-stats');
   if (!statsEl) return;
   const items = [
@@ -495,6 +496,10 @@ function renderStats(totalErrors, allowed, durationSec){
     { k: (typeof allowed==='number'? allowed : '–'), v: 'Erlaubt' },
     { k: (typeof durationSec==='number'? (Math.max(0, Math.floor(durationSec))+' s') : '–'), v: 'Dauer' }
   ];
+  // If this is a theory result, show score % instead of errors
+  if (typeof scorePct === 'number' && scorePct >= 0) {
+    items[0] = { k: scorePct + '%', v: 'Ergebnis' };
+  }
   statsEl.innerHTML = items.map(function(s){
     return '<div class="stat"><div class="k">'+s.k+'</div><div class="v">'+s.v+'</div></div>';
   }).join('');
@@ -534,8 +539,10 @@ function openResult(payload){
   if(parsed){ totalErrors = parsed.total; allowed = parsed.allowed; }
 
   const durationSec = payload.stats && typeof payload.stats.durationSec==='number' ? payload.stats.durationSec : null;
+  // isTheory flag marks theory results so score % is shown instead of error count
+  const scorePct = payload.isTheory ? Number(payload.scorePct || 0) : null;
 
-  renderStats(totalErrors, allowed, durationSec);
+  renderStats(totalErrors, allowed, durationSec, scorePct);
   renderErrors(errors);
 
   showApp();
@@ -666,6 +673,18 @@ function renderCurrentQuestion(){
     if (submitTheoryBtn) submitTheoryBtn.disabled = true;
     return;
   }
+
+  // Progress indicator
+  const progressWrap = document.getElementById('theory-progress-wrap');
+  if (progressWrap) {
+    const total = Number(questions.length) || 0;
+    const done = Number(currentIndex) + 1;
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    progressWrap.innerHTML =
+      '<div class="theory-progress-bar"><div class="theory-progress-fill" style="width:'+pct+'%"></div></div>' +
+      '<span class="theory-progress-label">Frage '+done+' / '+total+'</span>';
+  }
+
   qb.innerHTML = '';
   const wrap = document.createElement('div'); wrap.className='q';
   const title = document.createElement('div'); title.className='qt'; title.textContent = (currentIndex+1)+'. '+(q.text || '—');
@@ -740,6 +759,7 @@ async function submitTheory(auto){
   const btn = document.getElementById('submit-theory');
   if (btn) btn.disabled = true;
   safeBanner(auto ? 'Zeit abgelaufen – wird ausgewertet …' : 'Wird ausgewertet …');
+  _awaitingTheoryResult = true; // flag so stateSync shows result even if section changed
 
   const res = computeScore();
   try {
@@ -866,6 +886,22 @@ window.addEventListener('message', function(e){
 
   if (!allowOpenCheck(isLic ? 'license' : 'ui')) return;
 
+  // Handle theory-result messages sent directly from client/theorie.lua via SendNUIMessage
+  if (data.type === 'theory-result' || data.type === 'theory:result') {
+    const p = data.payload || {};
+    const passed = !!p.passed;
+    const scorePct = Number(p.scorePercent != null ? p.scorePercent : (p.scorePct != null ? p.scorePct : 0));
+    const summary = buildTheorySummary(passed, scorePct);
+    _awaitingTheoryResult = false;
+    openResult({ passed: passed, summary: summary, errors: [], stats: { durationSec: p.usedSeconds || 0 }, isTheory: true, scorePct: scorePct });
+    return;
+  }
+  // Handle theory-close from client/theorie.lua
+  if (data.type === 'theory-close') {
+    if (currentSection === 'theory') { hideApp(); cleanupSession(); currentSection = null; }
+    return;
+  }
+
   if (data.action === 'uiConfig'){ applyUiConfigMessage(data); return; }
 
   // Copyright / Plagiatschutz: Wasserzeichen aktualisieren
@@ -924,9 +960,10 @@ window.addEventListener('message', function(e){
     const ts = Number(data.detail && data.detail.ts) || Date.now();
     if (ts && ts === lastShownTheoryTs) return;
     lastShownTheoryTs = ts;
+    _awaitingTheoryResult = false;
 
     const summary = buildTheorySummary(passed, pct);
-    openResult({ passed: passed, summary: summary, errors: data.errors || [], stats: data.stats || {} });
+    openResult({ passed: passed, summary: summary, errors: data.errors || [], stats: data.stats || {}, isTheory: true, scorePct: pct });
     return;
   }
 
@@ -936,19 +973,20 @@ window.addEventListener('message', function(e){
     return;
   }
 
-  // Robust: Reagiere auf stateSync mit lastTheory (wenn noch im Theorie-Panel)
+  // Robust: Reagiere auf stateSync mit lastTheory (wenn Theorie abgegeben wurde)
   if (data.action === 'stateSync'){
     try {
       const st = data.state || {};
       if (st.lastTheory){
         const lt = st.lastTheory;
         const ts = Number(lt.ts) || Date.now();
-        if (ts !== lastShownTheoryTs && currentSection === 'theory'){
+        if (ts !== lastShownTheoryTs && (_awaitingTheoryResult || currentSection === 'theory')){
           lastShownTheoryTs = ts;
+          _awaitingTheoryResult = false;
           const passed = !!lt.passed;
           const pct = Number((lt.scorePct != null ? lt.scorePct : (lt.percentage != null ? lt.percentage : lt.pct)) || 0);
           const summary = buildTheorySummary(passed, pct);
-          openResult({ passed: passed, summary: summary, errors: [], stats: {} });
+          openResult({ passed: passed, summary: summary, errors: [], stats: {}, isTheory: true, scorePct: pct });
         }
       }
     } catch(e){}
