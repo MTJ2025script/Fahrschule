@@ -1,0 +1,214 @@
+┌─────────────────────────────────────────────────────────────────────────┐
+│  CRASH/RESPAWN FREEZE FIX - Flow Diagram                                │
+└─────────────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════
+BEFORE FIX (BROKEN) ❌
+═══════════════════════════════════════════════════════════════════════════
+
+┌──────────────┐
+│ Player Dies  │
+│  in Vehicle  │
+└──────┬───────┘
+       │
+       ▼
+┌──────────────────────┐
+│ Watchdog Detects     │
+│ (client/main.lua)    │
+│ - IsEntityDead(ped)  │
+└──────┬───────────────┘
+       │
+       ▼
+┌─────────────────────────────┐
+│ Triggers Event:             │
+│ :client:AbortPractice       │
+└──────┬──────────────────────┘
+       │
+       ▼
+┌─────────────────────────────┐
+│ ❌ NO HANDLER EXISTS!       │
+│ Event is ignored            │
+└──────┬──────────────────────┘
+       │
+       ├─────────────────────────────────┐
+       │                                 │
+       ▼                                 ▼
+┌─────────────────┐              ┌──────────────────┐
+│ Watchdog Stops  │              │ Practice Loop    │
+│ (good)          │              │ Keeps Running ❌ │
+└─────────────────┘              └──────┬───────────┘
+                                        │
+                                        ▼
+                                 ┌──────────────────┐
+                                 │ Vehicle/NPC      │
+                                 │ Still Exist ❌   │
+                                 └──────┬───────────┘
+                                        │
+                                        ▼
+                                 ┌──────────────────┐
+                                 │ Player Respawns  │
+                                 └──────┬───────────┘
+                                        │
+                                        ▼
+                                 ┌──────────────────────┐
+                                 │ FreezeEntityPosition │
+                                 │ (ped, true) set ❌   │
+                                 └──────┬───────────────┘
+                                        │
+                                        ▼
+                                 ┌──────────────────────┐
+                                 │ Ped Entity Changes   │
+                                 │ (new spawn)          │
+                                 └──────┬───────────────┘
+                                        │
+                                        ▼
+                                 ┌──────────────────────┐
+                                 │ FreezeEntityPosition │
+                                 │ (old_ped, false) ❌  │
+                                 │ = No effect!         │
+                                 └──────┬───────────────┘
+                                        │
+                                        ▼
+                                 ┌──────────────────────┐
+                                 │ 🧊 PLAYER FROZEN! ❌ │
+                                 └──────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════
+AFTER FIX (WORKING) ✅
+═══════════════════════════════════════════════════════════════════════════
+
+┌──────────────┐
+│ Player Dies  │
+│  in Vehicle  │
+└──────┬───────┘
+       │
+       ▼
+┌──────────────────────┐
+│ Watchdog Detects     │
+│ (client/main.lua)    │
+│ - IsEntityDead(ped)  │
+└──────┬───────────────┘
+       │
+       ▼
+┌─────────────────────────────┐
+│ Triggers Event:             │
+│ :client:AbortPractice       │
+└──────┬──────────────────────┘
+       │
+       ▼
+┌─────────────────────────────────────────┐
+│ ✅ HANDLER EXISTS!                      │
+│ RegisterNetEvent('AbortPractice')       │
+└──────┬──────────────────────────────────┘
+       │
+       ▼
+┌─────────────────────────────────────────┐
+│ Cleanup Phase:                          │
+│ 1. idealLineBlocked = true              │
+│ 2. stopAllUITimers()                    │
+│ 3. hardClearGuidance()                  │
+│    - clearBlips()                       │
+│    - clearCheckpoints()                 │
+│    - ClearGpsMultiRoute()               │
+└──────┬──────────────────────────────────┘
+       │
+       ▼
+┌─────────────────────────────────────────┐
+│ Is Practice Still Active?               │
+└──┬──────────────────────────────────┬───┘
+   │ No                                │ Yes
+   │                                   │
+   ▼                                   ▼
+┌──────────────────────┐    ┌─────────────────────────────┐
+│ Delete Entities:     │    │ Add Error to List:          │
+│ - DeleteEntity(npc)  │    │ - reason = 'death'          │
+│ - DeleteEntity(veh)  │    │ - label = 'Crash/Notaus...' │
+│ - npc = 0            │    │ - errorCounts[reason]++     │
+│ - vehicle = 0        │    └──────┬──────────────────────┘
+└──────┬───────────────┘           │
+       │                           ▼
+       │                    ┌──────────────────────────┐
+       │                    │ Show Notification:       │
+       │                    │ 'Prüfung abgebrochen'    │
+       │                    └──────┬───────────────────┘
+       │                           │
+       │                           ▼
+       │                    ┌──────────────────────────┐
+       │                    │ FinishPractice(false)    │
+       │                    │ - practiceActive = false │
+       │                    │ - Delete vehicle/NPC     │
+       │                    │ - Send to server         │
+       │                    └──────┬───────────────────┘
+       │                           │
+       └───────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────┐
+│ respawnToAbortPoint() - IMPROVED:       │
+│                                         │
+│ 1. ped = PlayerPedId() ✅               │
+│                                         │
+│ 2. DoScreenFadeOut()                   │
+│                                         │
+│ 3. ped = PlayerPedId() ✅ (UPDATE!)     │
+│                                         │
+│ 4. Exit vehicle if in one:             │
+│    - TaskLeaveVehicle()                │
+│    - Wait(500)                         │
+│    - ped = PlayerPedId() ✅ (UPDATE!)   │
+│                                         │
+│ 5. FreezeEntityPosition(ped, true)     │
+│                                         │
+│ 6. SetEntityCoordsNoOffset()           │
+│                                         │
+│ 7. Wait for collision load             │
+│                                         │
+│ 8. ped = PlayerPedId() ✅ (GET CURRENT) │
+│                                         │
+│ 9. if DoesEntityExist(ped) then        │
+│      FreezeEntityPosition(ped, false)  │
+│    end                                 │
+│                                         │
+│ 10. DoScreenFadeIn()                    │
+└──────┬──────────────────────────────────┘
+       │
+       ▼
+┌─────────────────────────────┐
+│ ✅ Player Unfrozen           │
+│ ✅ At Booking Point          │
+│ ✅ Can Move Freely           │
+│ ✅ Can Start New Practice    │
+└─────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════
+KEY IMPROVEMENTS ✅
+═══════════════════════════════════════════════════════════════════════════
+
+1. Event Handler Added:
+   - RegisterNetEvent(':client:AbortPractice')
+   - Properly receives watchdog signals
+   - Executes full cleanup
+
+2. Multiple Ped Updates:
+   - ped = PlayerPedId() called 4 times
+   - After fade, after vehicle exit, before unfreeze
+   - Ensures current entity is always used
+
+3. Safe Unfreeze:
+   - if DoesEntityExist(ped) check before unfreeze
+   - Prevents errors if ped became invalid
+
+4. Complete Cleanup:
+   - All visual elements removed
+   - Vehicle/NPC deleted
+   - Practice properly ended
+   - Server notified
+
+═══════════════════════════════════════════════════════════════════════════
+RESULT ✅
+═══════════════════════════════════════════════════════════════════════════
+
+BEFORE: Crash → No cleanup → Freeze → Stuck forever ❌
+AFTER:  Crash → Full cleanup → Safe respawn → Ready for new practice ✅
+
+═══════════════════════════════════════════════════════════════════════════

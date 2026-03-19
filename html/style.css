@@ -1,0 +1,466 @@
+/*
+========================================================================================================================
+  html/style.css (Panel groß genug, Logo-Badge immer sichtbar, Slogan groß & stylisch + Profi-Ergebnis-Panel)
+  Version: v1.1.2 (nur Card dunkel, Overlay transparent, alles bleibt sichtbar – echter GTA5/GTAV-RP-Style)
+  Build  : 2025-10-18
+  Copyright : (c) 2024-2026 MTJ2024 – Alle Rechte vorbehalten / All rights reserved.
+========================================================================================================================
+*/
+
+:root{
+  --bg:#0b0f14;
+  --panel:#121826cc;
+  --accent:#00d0ff;
+  --accent2:#7bffb7;
+  --text:#e8f1f8;
+  --muted:#a5b4c0;
+  --danger:#ff4d6d;
+  --success:#21e6a1;
+  --shadow: 0 8px 40px rgba(0,0,0,.45), 0 0 60px rgba(0,208,255,.08);
+}
+
+/* Base */
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0; font-family:Inter, "Segoe UI", Roboto, Arial, sans-serif; color:var(--text); user-select:none; background:transparent !important;}
+
+/* App visibility toggles */
+#app.hidden{display:none !important; visibility:hidden !important; pointer-events:none !important}
+#toast.hidden,#banner.hidden{display:none !important}
+
+/* Backdrop */
+body.ui-open{
+  background:
+    radial-gradient(1200px 800px at 15% 10%, #0b1a24, #070a0f),
+    radial-gradient(1000px 600px at 85% 85%, #0a1622, transparent);
+  animation: bgShift 20s ease-in-out infinite alternate;
+}
+@keyframes bgShift{0%{background-position:0 0,0 0}100%{background-position:8% 6%,-4% -3%}}
+
+/* Frame (zentriert) */
+.frame{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:40px; pointer-events:none}
+.neon{filter: drop-shadow(0 0 30px rgba(0,208,255,.14))}
+
+/* Panel – groß genug + kein Abschneiden */
+.panel{
+  pointer-events:auto;
+  background:linear-gradient(180deg, rgba(18,24,38,.94), rgba(7,10,14,.92));
+  border:1px solid rgba(0,208,255,.14);
+  border-radius:14px;
+  padding:20px;
+  width:min(1080px,95vw);
+  min-width:min(720px, 95vw);
+  min-height:460px;
+  box-shadow:inset 0 0 22px rgba(0,0,0,.45), var(--shadow);
+  backdrop-filter: blur(10px) saturate(120%);
+  position:relative;
+  overflow:visible;
+}
+
+/* Headline im Panel */
+.headline{
+  width:100%; text-align:center;
+  font-size:2.4rem; font-weight:900; letter-spacing:.08em;
+  color:var(--accent); margin:0 0 8px 0;
+  text-shadow:0 4px 32px #00d0ff55, 0 1px 0 #fff;
+  user-select:none;
+}
+
+/* Slogan */
+.slogan{
+  width:100%; text-align:center;
+  font-weight:900; line-height:1.1; letter-spacing:.04em;
+  font-size:clamp(22px, 2.2vw + 16px, 40px);
+  margin:0 0 14px 0;
+  background:linear-gradient(90deg, var(--accent), var(--accent2));
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  filter:drop-shadow(0 2px 20px rgba(0,208,255,.18));
+  user-select:none;
+}
+.slogan:empty{ display:none; }
+
+/* Badge: Großes Eck-Logo am Panel */
+.ui-corner-logo{
+  position:absolute;
+  top:-38px; right:-48px;
+  width:180px; height:180px;
+  transform:rotate(17deg) scale(1.08);
+  opacity:.92; filter:drop-shadow(0 6px 48px #00d0ff99);
+  z-index:50; pointer-events:none;
+}
+.ui-corner-logo img{
+  width:100%; height:100%; object-fit:contain; display:block;
+  border-radius:38px;
+  box-shadow:0 18px 48px #7b61ff55, 0 0 0 10px rgba(0,208,255,0.11);
+  animation:logoFloatPanel 5s cubic-bezier(.4,.8,.6,1.1) infinite alternate;
+}
+@keyframes logoFloatPanel{
+  0%{transform:scale(1) rotate(-7deg)}
+  48%{transform:scale(1.09) rotate(25deg)}
+  100%{transform:scale(1.02) rotate(13deg)}
+}
+
+/* Header */
+.header{display:flex; align-items:center; justify-content:flex-start; gap:16px; margin-bottom:12px}
+.header img{height:54px; max-width:220px; object-fit:contain; filter: drop-shadow(0 6px 20px rgba(0,0,0,.5))}
+#logo{transition:transform .45s cubic-bezier(.2,.9,.2,1), filter .45s; transform-origin:center; will-change:transform,filter; box-shadow:0 8px 30px rgba(0,208,255,.08)}
+@keyframes logoPulse{0%{transform:translateY(0) scale(1)}50%{transform:translateY(-4px) scale(1.02)}100%{transform:translateY(0) scale(1)}}
+body.ui-open #logo{animation:logoPulse 6s ease-in-out infinite}
+
+/* Mode Switch (Tabs für Theorie/Praxis) */
+.mode-switch{display:flex; gap:10px; align-items:center; margin-bottom:10px}
+.mode{
+  padding:8px 12px; border-radius:10px; border:1px solid rgba(255,255,255,.06);
+  background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+  color:var(--text); font-weight:800; letter-spacing:.02em; cursor:pointer;
+}
+.mode.active{
+  border-color:transparent;
+  background:linear-gradient(90deg, var(--accent), var(--accent2));
+  color:#001216; box-shadow:0 10px 28px rgba(0,208,255,.22)
+}
+.mode-hint{color:var(--muted); font-weight:700; margin-bottom:6px}
+
+/* Grid / Cards */
+.grid{display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin:14px 0 8px}
+.card{
+  position:relative; border-radius:12px; padding:18px 12px; cursor:pointer; text-align:center; font-weight:800;
+  background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
+  border:1px solid rgba(255,255,255,.04);
+  box-shadow:0 6px 18px rgba(0,0,0,.45), inset 0 0 26px rgba(0,0,0,.16);
+  transition:.18s ease;
+}
+.card:hover{transform:translateY(-6px) scale(1.01)}
+.card.active{border-color:var(--accent2); box-shadow:0 20px 60px rgba(0,208,255,.16)}
+.card .price{margin-top:8px;color:var(--muted);font-weight:700;font-size:.95rem}
+
+/* Questions */
+.question-box{margin-top:10px; display:flex; flex-direction:column; gap:12px; max-height:54vh; overflow:auto; padding-right:6px}
+.q{padding:12px;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));border:1px solid rgba(255,255,255,.03);box-shadow:inset 0 0 22px rgba(0,0,0,.28)}
+.q .qt{font-weight:900;margin-bottom:10px}
+.q .opts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.q .opts .opt{padding:10px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,.015), rgba(255,255,255,.005));border:1px solid rgba(255,255,255,.03);text-align:center;cursor:pointer;transition:.14s; font-weight:700}
+.q .opts .opt.sel{background:linear-gradient(180deg, rgba(0,208,255,.10), rgba(123,255,183,.04)); box-shadow:0 8px 28px rgba(0,208,255,.08);outline:2px solid rgba(0,208,255,.12)}
+
+/* Buttons */
+.row{display:flex;gap:12px;align-items:center;justify-content:flex-end;margin-top:12px}
+button{padding:10px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.06);color:var(--text);background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));cursor:pointer}
+button.primary{background:linear-gradient(90deg,var(--accent),var(--accent2));border:none;color:#001216;font-weight:900;box-shadow:0 10px 28px rgba(0,208,255,.22)}
+button.ghost{background:transparent}
+button:disabled{opacity:.55}
+
+/* Result – Legacy (belassen als Fallback) */
+#result-body .ok{color:var(--success);font-weight:900;margin-bottom:8px}
+#result-body .fail{color:var(--danger);font-weight:900;margin-bottom:8px}
+#result pre{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.04);padding:10px;border-radius:10px}
+
+/* Result – Professionelles Auswertungs-Panel */
+.result-card{
+  width:100%; background: linear-gradient(180deg, rgba(9,18,31,.85), rgba(9,18,31,.7));
+  border:1px solid rgba(0,200,255,.18); border-radius:16px; padding:16px; box-shadow: 0 6px 48px rgba(0,200,255,.18), 0 10px 40px rgba(0,0,0,.45)
+}
+.result-header{ display:flex; gap:14px; align-items:center; margin-bottom:10px; }
+.result-badge{
+  min-width:64px; height:64px; border-radius:14px; display:flex; align-items:center; justify-content:center;
+  font-weight:900; color:#021018; letter-spacing:.04em; box-shadow: inset 0 -3px 0 rgba(0,0,0,.15);
+}
+.result-badge.success{ background:linear-gradient(180deg, #00e699, #00d084); }
+.result-badge.fail{ background:linear-gradient(180deg, #ff644a, #ff3b30); }
+.result-meta h3{ margin:0; font-size:1.4rem; letter-spacing:.02em }
+.result-meta p{ margin:.2rem 0 0 0; opacity:.9 }
+
+.stats{ display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:8px; margin:12px 0 10px 0; }
+.stat{
+  background:rgba(0,200,255,.09); border:1px solid rgba(0,200,255,.16);
+  border-radius:12px; padding:10px; text-align:center
+}
+.stat .k{ font-size:1.2rem; font-weight:900; color:var(--accent) }
+.stat .v{ opacity:.9; font-weight:600 }
+
+.errors{ margin-top:10px; }
+.errors h4{ margin:0 0 8px 0; font-size:1.05rem; letter-spacing:.02em }
+.errors ul{
+  margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:6px; max-height:220px; overflow:auto
+}
+.errors li{
+  display:flex; align-items:center; gap:8px; background:rgba(0,0,0,.2); border:1px solid rgba(255,255,255,.08);
+  padding:8px 10px; border-radius:10px
+}
+.err-dot{ width:10px; height:10px; border-radius:50%; background:var(--accent) }
+.err-msg{ flex:1; font-weight:600 }
+.err-count{ padding:2px 8px; border-radius:8px; background:rgba(255,255,255,.08); font-weight:800; letter-spacing:.03em }
+
+/* Scrollbar (dezent) */
+.errors ul::-webkit-scrollbar{width:8px}
+.errors ul::-webkit-scrollbar-track{background:rgba(255,255,255,.06); border-radius:10px}
+.errors ul::-webkit-scrollbar-thumb{background:linear-gradient(180deg, var(--accent), var(--accent2)); border-radius:10px}
+
+/* Toast & Banner */
+.toast{
+  position:absolute;bottom:28px;left:50%;transform:translateX(-50%) translateY(8px);
+  padding:10px 16px;border-radius:12px;background:linear-gradient(180deg, rgba(0,0,0,.8), rgba(0,0,0,.64));
+  color:#fff;backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.04);box-shadow:0 10px 24px rgba(0,0,0,.45)
+}
+.banner{
+  position:absolute;top:18px;left:50%;transform:translateX(-50%) translateY(-8px);
+  padding:12px 16px;border-radius:12px;background:linear-gradient(90deg,var(--accent),var(--accent2));
+  color:#001216;font-weight:900;box-shadow:0 10px 28px rgba(0,208,255,.25)
+}
+
+/* Responsive */
+@media(max-width:1000px){
+  .grid{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:560px){
+  .grid{grid-template-columns:1fr}
+  .header{flex-direction:column;align-items:flex-start;gap:8px}
+  .header img{height:48px;max-width:60vw}
+  .panel{
+    padding:16px;
+    width:calc(100% - 40px);
+    min-width:auto;
+    min-height:360px;
+  }
+  .ui-corner-logo{ width:120px; height:120px; right:-24px; top:-24px; }
+  .ui-corner-logo img{ border-radius:18px; }
+}
+
+/* =====================================================================
+   US/GTAV-Style Führerschein Overlay (nur Card dunkel, Overlay transparent!)
+   ===================================================================== */
+#license-overlay { 
+  display: none;
+  position: fixed; inset: 0; z-index: 99999;
+  background: transparent !important; /* Kein dunkler Raum! */
+  align-items: center; justify-content: center;
+  pointer-events: none; /* Klicks gehen durch, außer auf die Card */
+}
+#license-overlay.show { display: flex; }
+
+#license-overlay .license-card {
+  pointer-events: auto;
+  width: clamp(520px, 48vw, 820px);
+  height: clamp(320px, 27vw, 380px);
+  background:
+    radial-gradient(900px 300px at 20% 30%, rgba(0,208,255,.11) 0 60%, transparent 100%),
+    radial-gradient(950px 350px at 90% 80%, rgba(123,255,183,.08) 0 60%, transparent 100%),
+    linear-gradient(122deg, #181b21 70%, #232933 100%);
+  border: 2.2px solid rgba(0,208,255,0.21);
+  border-radius: 16px;
+  box-shadow: 0 14px 56px 0 rgba(0,0,0,0.77), 0 0 0 3px rgba(0,208,255,0.09);
+  display: grid;
+  grid-template-columns: 210px 1fr;
+  grid-template-rows: 1fr 44px;
+  column-gap: 32px;
+  padding: 28px 36px;
+  position: relative;
+  overflow: visible;
+  isolation: isolate;
+}
+#license-overlay .license-card::before {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+  background: conic-gradient(from 112deg, #00d0ff55, #7bffb755 60%, #00d0ff55 100%);
+  opacity: 0.12;
+  mix-blend-mode: lighten;
+}
+
+/* Rest wie gehabt: Foto, Felder, Badge, Unterschrift, Footer etc. */
+.license-photo-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 13px;
+  background: rgba(255,255,255,.04);
+  border: 1.5px solid rgba(0,208,255,0.09);
+  overflow: hidden;
+  min-height: 0; min-width: 0;
+  width: 210px; height: 280px;
+  margin-right: 0;
+  box-shadow:
+    0 0 0 10px rgba(0,208,255,0.07) inset,
+    0 12px 38px rgba(0,0,0,0.29),
+    0 0 36px #00d0ff12;
+}
+#license-photo {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  background: #09121a;
+  border-radius: 11px;
+  border: 1.5px solid rgba(0,208,255,0.13);
+  box-shadow: 0 0 14px #00d0ff11;
+}
+
+#license-overlay .category-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  justify-content: center;
+  grid-row: 1 / span 2;
+  grid-column: 1 / 2;
+}
+
+/* Badge als Chip unter Foto */
+#license-category {
+  margin-top: 12px;
+  background: linear-gradient(90deg, rgba(0,208,255,.19), rgba(123,255,183,.17));
+  border: 2px solid #00e9d7;
+  border-radius: 13px;
+  padding: 7px 19px;
+  font-weight: 800;
+  letter-spacing: .17em;
+  color: #00e9d7;
+  font-size: clamp(13px, 1.7vw, 16px);
+  text-transform: uppercase;
+  box-shadow: 0 2px 13px #00d0ff22;
+  display: inline-block;
+}
+
+.license-data {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+  min-width: 0;
+  position: relative;
+  grid-row: 1 / span 2;
+  grid-column: 2 / 3;
+}
+.license-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 8px;
+}
+#license-logo {
+  height: clamp(35px, 6vw, 60px);
+  width: auto;
+  max-width: 60px;
+  filter: drop-shadow(0 2px 12px #00d0ff44) brightness(1.09);
+  border-radius: 8px;
+  background: #0b0f15;
+  box-shadow: 0 2px 10px rgba(0,0,0,.25);
+}
+.license-title {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  justify-content: flex-start;
+}
+#license-org {
+  font-weight: 900;
+  font-size: 1.06rem;
+  letter-spacing: .04em;
+  white-space: nowrap;
+  color: #b0eaff;
+  opacity: .97;
+}
+#license-title {
+  font-weight: 900;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  background: linear-gradient(90deg, #00d0ff 40%, #7bffb7 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  font-size: clamp(20px, 2.6vw, 27px);
+  text-shadow: 0 2px 18px #00d0ff28;
+  opacity: .93;
+  line-height: 1.1;
+}
+.license-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 11px 22px;
+  background: rgba(255,255,255,.03);
+  border: 1.2px solid rgba(255,255,255,.08);
+  padding: 13px 12px;
+  border-radius: 12px;
+  margin: 3px 0 0 0;
+  min-width: 0;
+}
+.field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.field .lab {
+  font-size: .84rem;
+  opacity: .8;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: #b0eaff;
+  font-weight: 700;
+}
+.field .val {
+  font-weight: 900;
+  letter-spacing: .03em;
+  color: #f5fcff;
+  font-size: 1.06rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.signature {
+  grid-column:1 / span 2;
+  margin-top:8px;
+}
+.signature .lbl{
+  font-size:.84rem; opacity:.8; letter-spacing:.06em; text-transform:uppercase; margin-bottom:3px;
+}
+#license-signature{
+  height:28px; border-bottom:1px solid rgba(255,255,255,0.23);
+  font-family:"Segoe Script","Brush Script MT",cursive;
+  font-size:17px; letter-spacing:.6px; color:#f5fcff; opacity:.91;
+  display:flex; align-items:flex-end;
+}
+.license-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  font-size: clamp(13px, 1.3vw, 16px);
+  color: #b9eaff;
+  opacity: 0.93;
+  font-family: 'Inter', monospace;
+  font-weight: 800;
+  letter-spacing: .13em;
+  margin-top: 13px;
+}
+#license-watermark{
+  opacity:.10 !important;
+  font-weight:900 !important;
+  letter-spacing:.27em !important;
+  text-transform:uppercase !important;
+  font-size: clamp(25px, 4vw, 38px) !important;
+  color: #eaf6ff !important;
+  pointer-events: none !important;
+  filter: blur(.4px) brightness(1.18);
+}
+#license-idtext { font-weight: 800; }
+#license-timer{
+  opacity: .85;
+  font-size: 14px;
+  color: #00d0ff;
+  padding: 4px 12px;
+  border-radius: 10px;
+  background:rgba(0,208,255,0.14);
+  border: 1.3px solid rgba(0,208,255,0.21);
+  font-weight: 700;
+  margin-left: 16px;
+}
+/* Schließen-Button */
+#license-close{
+  display: none !important;
+}
+
+/* Mobile */
+@media (max-width: 900px){
+  #license-overlay .license-card{padding:8px 1vw!important; grid-template-columns: 110px 1fr;}
+  .license-photo-wrap{width:110px;height:146px;}
+  #license-photo{border-radius:8px;}
+  .license-footer{font-size:13px;}
+}
+@media (max-width: 600px){
+  #license-overlay .license-card{padding:4px .5vw!important; grid-template-columns: 1fr;}
+  .license-photo-wrap{width:80vw;height:112vw;max-width:98vw;max-height:68vw;}
+  .license-data{padding:0 2vw;}
+}

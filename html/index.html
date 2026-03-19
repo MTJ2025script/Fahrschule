@@ -1,0 +1,264 @@
+<!doctype html>
+<!-- Copyright (c) 2024-2026 MTJ2024 – Alle Rechte vorbehalten / All rights reserved. -->
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self' 'unsafe-inline' data:;
+                 script-src 'self' 'unsafe-eval' 'unsafe-inline';
+                 style-src 'self' 'unsafe-inline';
+                 img-src 'self' https: data: blob:;
+                 connect-src 'self' https: data: blob:;
+                 media-src 'self' https: data: blob:;">
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="author" content="MTJ2024" />
+  <meta name="copyright" content="Copyright (c) 2024-2026 MTJ2024 – Alle Rechte vorbehalten" />
+  <title>UI</title>
+
+  <link rel="stylesheet" href="style.css?v=13" />
+  <style>
+    /* Basis */
+    #app.hidden{display:none !important; visibility:hidden !important; pointer-events:none !important}
+    #toast.hidden,#banner.hidden{display:none !important}
+    .headline{width:100%;text-align:center;font-size:2.4rem;font-weight:900;letter-spacing:.08em;color:var(--accent,#00C8FF);margin:0 0 8px 0;text-shadow:0 4px 32px #00d0ff55,0 1px 0 #fff;user-select:none}
+    .slogan{width:100%;text-align:center;font-weight:900;line-height:1.1;letter-spacing:.04em;font-size:clamp(22px,2.2vw + 16px,40px);margin:0 0 14px 0;background:linear-gradient(90deg,var(--accent,#00C8FF),var(--accent2,#7bffb7));-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 2px 20px rgba(0,208,255,.18));user-select:none}
+
+    /* Lizenz-Overlay: default schwarz/US */
+    .license-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;z-index:9999}
+    .license-overlay.show{display:flex}
+    .license-card{
+      width:min(94vw, 880px);
+      height:min(88vh, 520px);
+      display:grid;
+      grid-template-columns: 360px 1fr;
+      gap:18px;
+      background:linear-gradient(160deg, #0b0f15 0%, #0a0f18 100%); /* schwarz */
+      color:#fff;
+      border:1px solid rgba(0,200,255,0.25);
+      border-radius:16px;
+      box-shadow: 0 20px 80px rgba(0,0,0,.55), 0 8px 32px rgba(0,200,255,.14);
+      padding:18px;
+      position:relative;
+      font-family:Inter, Arial, sans-serif;
+    }
+    .license-photo-wrap{
+      display:flex;align-items:center;justify-content:center;
+      border-radius:12px;
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.08);
+      overflow:hidden;
+      min-height:0; min-width:0;
+    }
+    #license-photo{width:100%; height:100%; max-width:100%; max-height:100%; object-fit:cover; background:#0b0f15}
+    .license-data{display:grid;grid-template-rows:auto auto 1fr auto;gap:10px; min-width:0; min-height:0}
+    .license-head{display:flex; align-items:center; gap:12px}
+    #license-logo{width:56px;height:56px;object-fit:contain;border-radius:8px;background:#0b0f15;box-shadow:0 2px 10px rgba(0,0,0,.35)}
+    .license-title{display:flex;flex-direction:column;gap:4px}
+    #license-org{font-weight:900;font-size:1.1rem;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #license-title{opacity:.92;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+    .license-grid{
+      display:grid;grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px;
+      background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);padding:12px;border-radius:12px; min-height:0;
+    }
+    .field{display:flex;flex-direction:column; gap:4px; min-width:0}
+    .field .lab{font-size:.78rem;opacity:.8;letter-spacing:.06em; text-transform:uppercase}
+    .field .val{font-weight:800;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+    /* US-Details */
+    .category-wrap{display:flex;flex-direction:column;gap:10px}
+    #license-category{display:inline-block; font-size:12px; opacity:.95; background:#0d1520; border:1px solid rgba(0,200,255,0.35); padding:6px 8px; border-radius:6px; letter-spacing:.2px}
+    .signature{grid-column:1 / span 2; margin-top:6px}
+    .signature .lbl{font-size:.78rem;opacity:.8;letter-spacing:.06em; text-transform:uppercase; margin-bottom:4px}
+    #license-signature{height:28px;border-bottom:1px solid rgba(255,255,255,0.25);font-family:"Segoe Script","Brush Script MT",cursive;font-size:18px;letter-spacing:.6px;color:#e5e5e5;opacity:.95;display:flex;align-items:flex-end}
+    .license-footer{display:flex; justify-content:space-between; align-items:center; gap:10px; opacity:.95; font-weight:800; letter-spacing:.06em}
+    #license-watermark{opacity:.12; font-weight:900}
+    /* Entfernt den Schließen-Button vom Führerschein */
+    #license-close { display: none !important; }
+    #license-timer{opacity:.75}
+    @media (max-width: 760px){
+      .license-card{grid-template-columns:1fr; height:min(92vh, 640px)}
+      .license-photo-wrap{height:44vh}
+    }
+
+    /* Panels hidden fallback */
+    .panel-body.hidden{display:none!important;visibility:hidden!important;pointer-events:none!important;opacity:0!important}
+  </style>
+
+  <script>
+    window.MTJ_CONFIG = window.MTJ_CONFIG || {
+      UI_NAME: "Fahrschule",
+      UI_SCHRIFTZUG: "Fahrschule",
+      UI_SLOGAN: "Dein Weg zum Führerschein",
+      LOGO_PATH: "img/logo.png",
+      BOOKING_TITLE: "Fahrschule-Buchen"
+    };
+    window.MTJ_RESULT_PIN_SECONDS = window.MTJ_RESULT_PIN_SECONDS || 30;
+  </script>
+</head>
+<body>
+  <!-- Dein Prüfungs-UI (gekürzt, unverändert) -->
+  <div id="app" class="hidden" aria-hidden="true">
+    <div class="frame neon">
+      <div class="panel" role="dialog" aria-modal="true" aria-labelledby="menu-title" style="background:linear-gradient(180deg, rgba(6,14,24,.96), rgba(6,14,24,.88))">
+        <div class="ui-corner-logo"><img id="panel-logo" src="" alt="Logo" /></div>
+
+        <div class="headline" id="headline"></div>
+        <div class="slogan" id="slogan"></div>
+
+        <div class="header" aria-hidden="false">
+          <div id="logo-wrap" class="logo-wrap" role="img" aria-label="Logo">
+            <img id="logo" src="" alt="Logo" />
+            <div id="logo-fallback" class="logo-fallback" aria-hidden="true">
+              <svg viewBox="0 0 240 60" xmlns="http://www.w3.org/2000/svg" class="logo-fallback-svg" role="presentation" focusable="false" style="width:100%;height:100%;max-height:60px;">
+                <rect width="100%" height="100%" rx="8" fill="#071018"/>
+                <text id="fallback-text" x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"
+                      font-family="Inter, Arial, sans-serif" font-size="18" fill="#00d0ff"></text>
+              </svg>
+              <div id="fallback-caption" class="logo-fallback-caption" style="margin-top:4px;font-weight:700;color:#00d0ff;"></div>
+            </div>
+          </div>
+          <img id="logo2" class="logo2" alt="" style="display:none" />
+        </div>
+
+        <!-- MENU/Theory/Result Sektionen (wie gehabt) -->
+        <section id="menu" class="panel-body" role="document" aria-hidden="true">
+          <h2 id="menu-title"></h2>
+          <div class="mode-switch" role="tablist" aria-label="Prüfungsart wählen">
+            <button id="mode-theory" class="mode active" data-mode="theory" role="tab" aria-selected="true">Theorie</button>
+            <button id="mode-practice" class="mode" data-mode="practice" role="tab" aria-selected="false">Praxis</button>
+          </div>
+          <div class="mode-hint" id="mode-hint">Wähle eine Kategorie und den Modus, dann buchen & bezahlen.</div>
+          <div class="grid" role="list">
+            <button class="card" data-cat="car" role="listitem">PKW<div class="price"></div></button>
+            <button class="card" data-cat="bike" role="listitem">Motorrad<div class="price"></div></button>
+            <button class="card" data-cat="truck" role="listitem">LKW<div class="price"></div></button>
+            <button class="card" data-cat="heli" role="listitem">Hubschrauber<div class="price"></div></button>
+            <button class="card" data-cat="plane" role="listitem">Flugzeug<div class="price"></div></button>
+          </div>
+          <div class="row" style="margin-top:16px;">
+            <button id="book-btn" class="primary" disabled>Buchen & bezahlen</button>
+            <button id="close-menu" class="ghost">Schließen</button>
+          </div>
+        </section>
+
+        <section id="theory" class="panel-body hidden" role="document" aria-hidden="true">
+          <h2 id="theory-title">Theorieprüfung</h2>
+          <div class="row info">
+            <div>Timer: <span id="timer">--:--</span></div>
+            <div id="category-name">Kategorie</div>
+          </div>
+          <div id="question-box" class="question-box" aria-live="polite"></div>
+          <div class="row">
+            <button id="submit-theory" class="primary hidden">Abgeben</button>
+            <button id="cancel-theory" class="ghost">Abbrechen</button>
+          </div>
+        </section>
+
+        <section id="result" class="panel-body hidden" role="document" aria-hidden="true">
+          <h2 id="result-title">Ergebnis</h2>
+          <div id="result-card" class="result-card">
+            <div class="result-header">
+              <div id="result-badge" class="result-badge">--</div>
+              <div class="result-meta">
+                <h3 id="result-headline">Auswertung</h3>
+                <p id="result-subtitle">Zusammenfassung</p>
+              </div>
+            </div>
+            <div class="stats" id="result-stats"></div>
+            <div class="errors">
+              <h4 id="result-errors-title">Deine Fehler</h4>
+              <ul id="result-errors-list"></ul>
+            </div>
+          </div>
+          <div class="row" style="margin-top:12px;">
+            <button id="close-result" class="primary">Okay</button>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== LIZENZ-OVERLAY (US, schwarz, mit Signatur) ========== -->
+  <div id="license-overlay" class="license-overlay" aria-hidden="true">
+    <div class="license-card" role="dialog" aria-modal="true" aria-labelledby="license-title">
+      <!-- Der Schließen-Button ist entfernt -->
+
+      <div class="category-wrap">
+        <div class="license-photo-wrap">
+          <img id="license-photo" alt="Passfoto" src="img/logo.png" />
+        </div>
+        <div id="license-category"></div>
+      </div>
+
+      <div class="license-data">
+        <div class="license-head">
+          <img id="license-logo" src="img/logo.png" alt="Logo" />
+          <div class="license-title">
+            <div id="license-org">Fahrschule</div>
+            <div id="license-title">Führerschein</div>
+          </div>
+        </div>
+
+        <div class="license-grid">
+          <div class="field">
+            <div class="lab" id="lab-firstname">Vorname</div>
+            <div class="val" id="val-firstname">-</div>
+          </div>
+          <div class="field">
+            <div class="lab" id="lab-lastname">Nachname</div>
+            <div class="val" id="val-lastname">-</div>
+          </div>
+          <div class="field">
+            <div class="lab" id="lab-birthdate">Geburtsdatum</div>
+            <div class="val" id="val-birthdate">-</div>
+          </div>
+          <div class="field">
+            <div class="lab" id="lab-height">Größe</div>
+            <div class="val" id="val-height">-</div>
+          </div>
+          <div class="field">
+            <div class="lab" id="lab-category">Klasse</div>
+            <div class="val" id="val-category">-</div>
+          </div>
+          <div class="field">
+            <div class="lab" id="lab-issuedAt">Ausgestellt am</div>
+            <div class="val" id="val-issuedAt">-</div>
+          </div>
+          <div class="field">
+            <div class="lab" id="lab-expiresAt">Gültig bis</div>
+            <div class="val" id="val-expiresAt">-</div>
+          </div>
+
+          <div class="signature">
+            <div class="lbl">Unterschrift des Inhabers</div>
+            <div id="license-signature"></div>
+          </div>
+        </div>
+
+        <div class="license-footer">
+          <div id="license-watermark">USA DRIVING LICENSE</div>
+          <div id="license-idtext" style="min-width:140px;text-align:right;font-family:Consolas,Menlo,monospace;font-size:11px;opacity:.85;letter-spacing:.4px">DLN: —</div>
+          <div id="license-timer"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+  <div id="banner" class="banner hidden" role="status" aria-live="polite"></div>
+
+  <!-- Copyright Watermark -->
+  <div id="mtj-copyright" style="position:fixed;bottom:6px;right:10px;font-size:10px;opacity:0.25;color:#b0eaff;font-family:Inter,monospace;pointer-events:none;z-index:99998;letter-spacing:.04em;user-select:none;">&copy; MTJ2024</div>
+
+  <!-- Daten/JS -->
+  <script>window.MTJ_QUESTIONS = window.MTJ_QUESTIONS || {};</script>
+  <script src="data/questions_car.js?v=7"></script>
+  <script src="data/questions_bike.js?v=7"></script>
+  <script src="data/questions_truck.js?v=7"></script>
+  <script src="data/questions_heli.js?v=7"></script>
+  <script src="data/questions_plane.js?v=7"></script>
+  <script src="data/questions_fallback.js?v=7"></script>
+  <script src="app.js?v=21"></script>
+  <script src="sfx.js?v=3"></script>
+</body>
+</html>
