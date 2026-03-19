@@ -96,6 +96,58 @@ local function ensureBookingsTable()
     end)
 end
 
+-- Ensures all certificate items exist in ESX's items table.
+-- Tries both ESX Legacy (weight) and old ESX (limit) schemas via a stored procedure
+-- so it works regardless of schema variant.  No-op on ox_inventory servers.
+local function ensureESXItems()
+    if not hasOxmysql then return end
+    local allItems = {}
+    if Config and Config.Items then
+        for _, name in pairs(Config.Items.theory or {}) do allItems[#allItems+1] = name end
+        for _, name in pairs(Config.Items.practice or {}) do allItems[#allItems+1] = name end
+    end
+    if #allItems == 0 then return end
+
+    -- Build labels from item names
+    local labels = {
+        cert_theory_pkw='Zertifikat Theorie (PKW)',   cert_practice_pkw='Zertifikat Praxis (PKW)',
+        cert_theory_bike='Zertifikat Theorie (Motorrad)', cert_practice_bike='Zertifikat Praxis (Motorrad)',
+        cert_theory_truck='Zertifikat Theorie (LKW)', cert_practice_truck='Zertifikat Praxis (LKW)',
+        cert_theory_heli='Zertifikat Theorie (Hubschrauber)', cert_practice_heli='Zertifikat Praxis (Hubschrauber)',
+        cert_theory_plane='Zertifikat Theorie (Flugzeug)', cert_practice_plane='Zertifikat Praxis (Flugzeug)',
+    }
+
+    -- Use a stored procedure with CONTINUE HANDLER so missing columns/table are silently ignored
+    local valuesWeight, valuesLimit = {}, {}
+    for _, name in ipairs(allItems) do
+        local label = labels[name] or name
+        valuesWeight[#valuesWeight+1] = string.format("('%s','%s',1,0,1)", name:gsub("'","''"), label:gsub("'","''"))
+        valuesLimit[#valuesLimit+1]   = string.format("('%s','%s',1,0,1)", name:gsub("'","''"), label:gsub("'","''"))
+    end
+
+    local sql = [[
+        DROP PROCEDURE IF EXISTS `_mtj_ensure_items`;
+    ]]
+    pcall(function() MySQL.query(sql, {}) end)
+
+    local proc = string.format([[
+        CREATE PROCEDURE `_mtj_ensure_items`()
+        BEGIN
+            DECLARE CONTINUE HANDLER FOR SQLEXCEPTION BEGIN END;
+            INSERT IGNORE INTO `items` (`name`,`label`,`weight`,`rare`,`can_remove`) VALUES %s;
+            INSERT IGNORE INTO `items` (`name`,`label`,`limit`,`rare`,`can_remove`)  VALUES %s;
+        END
+    ]], table.concat(valuesWeight,','), table.concat(valuesLimit,','))
+
+    pcall(function() MySQL.query(proc, {}) end)
+    pcall(function()
+        MySQL.query('CALL `_mtj_ensure_items`();', {})
+    end)
+    pcall(function() MySQL.query('DROP PROCEDURE IF EXISTS `_mtj_ensure_items`;', {}) end)
+    print(('[%s][server] ensureESXItems: attempted to seed %d items into ESX items table'):format(
+        (Config and Config.ResourceName) or GetCurrentResourceName(), #allItems))
+end
+
 -- ============================================================================
 -- CONVARS / LIMITS
 -- ============================================================================
@@ -243,9 +295,21 @@ end
 
 local function invAddOne(src, itemName, xPlayer)
     if not itemName or itemName == '' then return false end
-    if xPlayer and xPlayer.addInventoryItem then
-        local ok = pcall(function() xPlayer.addInventoryItem(itemName, 1) end)
-        if ok then return true end
+    -- ESX path: call addInventoryItem, then verify count actually increased
+    if xPlayer and type(xPlayer.addInventoryItem) == 'function' then
+        local before = 0
+        pcall(function()
+            local it = xPlayer.getInventoryItem and xPlayer.getInventoryItem(itemName)
+            before = (it and (it.count or it.quantity or it.amount)) or 0
+        end)
+        pcall(function() xPlayer.addInventoryItem(itemName, 1) end)
+        local after = 0
+        pcall(function()
+            local it = xPlayer.getInventoryItem and xPlayer.getInventoryItem(itemName)
+            after = (it and (it.count or it.quantity or it.amount)) or 0
+        end)
+        if after > before then return true end
+        -- ESX didn't add it (item not in registry) -- fall through to ox_inventory
     end
     if exports and exports.ox_inventory then
         local ok, res = pcall(function() return exports.ox_inventory:AddItem(src, itemName, 1) end)
@@ -684,6 +748,7 @@ CreateThread(function()
     ensureLicenseTable()
     ensureTheoryPracticeTables()
     ensureBookingsTable()
+    ensureESXItems()
     if not registerESXCallbacks() then
         local attempts = 0
         while attempts < 20 do
@@ -745,12 +810,26 @@ local function handleTheoryResultCore(src, category, token, passed, pct)
         local allowNoBooking = not (Config and Config.AllowTheoryGrantWithoutBooking == false)
         if allowNoBooking and passedBool then
             local item = getTheoryItemName(cat)
-            if item then invAddOne(src, item, xPlayer) end
+            if item then
+                local granted = invAddOne(src, item, xPlayer)
+                if granted then
+                    log('theory item granted (no-booking path) src='..src..' cat='..cat..' item='..item)
+                else
+                    log('WARN theory item grant FAILED src='..src..' cat='..cat..' item='..tostring(item)..' -- item not in ESX registry? Run sql.sql')
+                end
+            end
         end
     else
         if passedBool then
             local item = getTheoryItemName(cat)
-            if item then invAddOne(src, item, xPlayer) end
+            if item then
+                local granted = invAddOne(src, item, xPlayer)
+                if granted then
+                    log('theory item granted src='..src..' cat='..cat..' item='..item)
+                else
+                    log('WARN theory item grant FAILED src='..src..' cat='..cat..' item='..tostring(item)..' -- item not in ESX registry? Run sql.sql')
+                end
+            end
         end
         bookings[src] = nil
     end

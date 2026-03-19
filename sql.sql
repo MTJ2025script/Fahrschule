@@ -72,35 +72,58 @@ INSERT IGNORE INTO `licenses` (`type`, `label`) VALUES
 ('plane',       'Fluglizenz'),
 ('weapon',      'Waffenlizenz');
 
--- 6) ESX-Items (Zertifikate) – Wähle GENAU EINEN der beiden Blöcke und entferne die Kommentarzeichen.
---    Lass die Blöcke KOMMENTIERT, wenn du ox_inventory nutzt oder Items bereits definiert sind.
+-- 6) ESX-Items (Zertifikate) – automatisch kompatibel mit beiden ESX-Schemata
+--    Eine gespeicherte Prozedur versucht erst das weight-Schema (ESX Legacy) und dann
+--    das limit-Schema (altes ESX). Fehler werden durch CONTINUE HANDLER ignoriert.
+--    Falls du ox_inventory nutzt, definiere die Items dort (s. unten) – dieser Block
+--    schadet ox_inventory-Servern nicht, da ein fehlendes items-Table ignoriert wird.
 
--- [VARIANTE A – ESX Legacy (weight-Schema)]
--- INSERT IGNORE INTO `items` (`name`, `label`, `weight`, `rare`, `can_remove`) VALUES
--- ('cert_theory_pkw',      'Zertifikat Theorie (PKW)',            1, 0, 1),
--- ('cert_practice_pkw',    'Zertifikat Praxis (PKW)',             1, 0, 1),
--- ('cert_theory_bike',     'Zertifikat Theorie (Motorrad)',       1, 0, 1),
--- ('cert_practice_bike',   'Zertifikat Praxis (Motorrad)',        1, 0, 1),
--- ('cert_theory_truck',    'Zertifikat Theorie (LKW)',            1, 0, 1),
--- ('cert_practice_truck',  'Zertifikat Praxis (LKW)',             1, 0, 1),
--- ('cert_theory_heli',     'Zertifikat Theorie (Hubschrauber)',   1, 0, 1),
--- ('cert_practice_heli',   'Zertifikat Praxis (Hubschrauber)',    1, 0, 1),
--- ('cert_theory_plane',    'Zertifikat Theorie (Flugzeug)',       1, 0, 1),
--- ('cert_practice_plane',  'Zertifikat Praxis (Flugzeug)',        1, 0, 1);
+DROP PROCEDURE IF EXISTS `mtj_ensure_items`;
+DELIMITER $$
+CREATE PROCEDURE `mtj_ensure_items`()
+BEGIN
+    -- Fehler werden ignoriert (fehlende Spalten / Tabelle / Duplikate)
+    DECLARE CONTINUE HANDLER FOR SQLEXCEPTION BEGIN END;
 
--- [VARIANTE B – Altes ESX (limit-Schema)]
--- INSERT IGNORE INTO `items` (`name`, `label`, `limit`, `rare`, `can_remove`) VALUES
--- ('cert_theory_pkw',      'Zertifikat Theorie (PKW)',            1, 0, 1),
--- ('cert_practice_pkw',    'Zertifikat Praxis (PKW)',             1, 0, 1),
--- ('cert_theory_bike',     'Zertifikat Theorie (Motorrad)',       1, 0, 1),
--- ('cert_practice_bike',   'Zertifikat Praxis (Motorrad)',        1, 0, 1),
--- ('cert_theory_truck',    'Zertifikat Theorie (LKW)',            1, 0, 1),
--- ('cert_practice_truck',  'Zertifikat Praxis (LKW)',             1, 0, 1),
--- ('cert_theory_heli',     'Zertifikat Theorie (Hubschrauber)',   1, 0, 1),
--- ('cert_practice_heli',   'Zertifikat Praxis (Hubschrauber)',    1, 0, 1),
--- ('cert_theory_plane',    'Zertifikat Theorie (Flugzeug)',       1, 0, 1),
--- ('cert_practice_plane',  'Zertifikat Praxis (Flugzeug)',        1, 0, 1);
+    -- Variante A: ESX Legacy (weight-Spalte)
+    INSERT IGNORE INTO `items` (`name`, `label`, `weight`, `rare`, `can_remove`) VALUES
+    ('cert_theory_pkw',     'Zertifikat Theorie (PKW)',           1, 0, 1),
+    ('cert_practice_pkw',   'Zertifikat Praxis (PKW)',            1, 0, 1),
+    ('cert_theory_bike',    'Zertifikat Theorie (Motorrad)',      1, 0, 1),
+    ('cert_practice_bike',  'Zertifikat Praxis (Motorrad)',       1, 0, 1),
+    ('cert_theory_truck',   'Zertifikat Theorie (LKW)',           1, 0, 1),
+    ('cert_practice_truck', 'Zertifikat Praxis (LKW)',            1, 0, 1),
+    ('cert_theory_heli',    'Zertifikat Theorie (Hubschrauber)',  1, 0, 1),
+    ('cert_practice_heli',  'Zertifikat Praxis (Hubschrauber)',   1, 0, 1),
+    ('cert_theory_plane',   'Zertifikat Theorie (Flugzeug)',      1, 0, 1),
+    ('cert_practice_plane', 'Zertifikat Praxis (Flugzeug)',       1, 0, 1);
 
--- HINWEIS:
--- - Items-Block A oder B nur ausführen, wenn er zu deinem ESX-Schema passt.
--- - Falls du ox_inventory nutzt, definiere die Items in ox_inventory/data/items.lua statt per SQL.
+    -- Variante B: Altes ESX (limit-Spalte) – wird nur ausgeführt wenn weight fehlt
+    INSERT IGNORE INTO `items` (`name`, `label`, `limit`, `rare`, `can_remove`) VALUES
+    ('cert_theory_pkw',     'Zertifikat Theorie (PKW)',           1, 0, 1),
+    ('cert_practice_pkw',   'Zertifikat Praxis (PKW)',            1, 0, 1),
+    ('cert_theory_bike',    'Zertifikat Theorie (Motorrad)',      1, 0, 1),
+    ('cert_practice_bike',  'Zertifikat Praxis (Motorrad)',       1, 0, 1),
+    ('cert_theory_truck',   'Zertifikat Theorie (LKW)',           1, 0, 1),
+    ('cert_practice_truck', 'Zertifikat Praxis (LKW)',            1, 0, 1),
+    ('cert_theory_heli',    'Zertifikat Theorie (Hubschrauber)',  1, 0, 1),
+    ('cert_practice_heli',  'Zertifikat Praxis (Hubschrauber)',   1, 0, 1),
+    ('cert_theory_plane',   'Zertifikat Theorie (Flugzeug)',      1, 0, 1),
+    ('cert_practice_plane', 'Zertifikat Praxis (Flugzeug)',       1, 0, 1);
+END$$
+DELIMITER ;
+
+CALL `mtj_ensure_items`();
+DROP PROCEDURE IF EXISTS `mtj_ensure_items`;
+
+-- HINWEIS ox_inventory: Items nicht per SQL, sondern in ox_inventory/data/items.lua eintragen:
+-- ['cert_theory_pkw']     = { label = 'Zertifikat Theorie (PKW)',          weight = 0 },
+-- ['cert_practice_pkw']   = { label = 'Zertifikat Praxis (PKW)',           weight = 0 },
+-- ['cert_theory_bike']    = { label = 'Zertifikat Theorie (Motorrad)',     weight = 0 },
+-- ['cert_practice_bike']  = { label = 'Zertifikat Praxis (Motorrad)',      weight = 0 },
+-- ['cert_theory_truck']   = { label = 'Zertifikat Theorie (LKW)',          weight = 0 },
+-- ['cert_practice_truck'] = { label = 'Zertifikat Praxis (LKW)',           weight = 0 },
+-- ['cert_theory_heli']    = { label = 'Zertifikat Theorie (Hubschrauber)', weight = 0 },
+-- ['cert_practice_heli']  = { label = 'Zertifikat Praxis (Hubschrauber)',  weight = 0 },
+-- ['cert_theory_plane']   = { label = 'Zertifikat Theorie (Flugzeug)',     weight = 0 },
+-- ['cert_practice_plane'] = { label = 'Zertifikat Praxis (Flugzeug)',      weight = 0 },
