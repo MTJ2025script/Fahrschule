@@ -47,50 +47,63 @@ local function safeHasItem_ESX(xPlayer, item)
 end
 
 local function safeAddItemToPlayer(src, item, amount)
-  local added = false
-  amount = tonumber(amount) or 1
-  if amount <= 0 or not item or item == '' then return false end
+    local added = false
+    amount = tonumber(amount) or 1
+    if amount <= 0 or not item or item == '' then return false end
 
-  -- ESX
-  pcall(function()
-    local esx = getESX()
-    if esx and esx.GetPlayerFromId then
-      local xPlayer = esx.GetPlayerFromId(src)
-      if xPlayer then
-        if type(xPlayer.addInventoryItem) == 'function' then
-          xPlayer.addInventoryItem(item, amount); added = true; return
-        elseif type(xPlayer.addItem) == 'function' then
-          xPlayer.addItem(item, amount); added = true; return
+    -- ESX: verify item count actually increased after the call
+    pcall(function()
+        local esx = getESX()
+        if esx and esx.GetPlayerFromId then
+            local xPlayer = esx.GetPlayerFromId(src)
+            if xPlayer then
+                local before = 0
+                pcall(function()
+                    local it = xPlayer.getInventoryItem and xPlayer.getInventoryItem(item)
+                    before = (it and (it.count or it.quantity or it.amount)) or 0
+                end)
+                if type(xPlayer.addInventoryItem) == 'function' then
+                    xPlayer.addInventoryItem(item, amount)
+                elseif type(xPlayer.addItem) == 'function' then
+                    xPlayer.addItem(item, amount)
+                else
+                    return
+                end
+                local after = 0
+                pcall(function()
+                    local it = xPlayer.getInventoryItem and xPlayer.getInventoryItem(item)
+                    after = (it and (it.count or it.quantity or it.amount)) or 0
+                end)
+                if after > before then added = true end
+            end
         end
-      end
+    end)
+
+    -- QBCore
+    if not added then
+        pcall(function()
+            local qb = getQBCore()
+            if qb and qb.Functions and qb.Functions.GetPlayer then
+                local Player = qb.Functions.GetPlayer(src)
+                if Player and Player.Functions and type(Player.Functions.AddItem) == 'function' then
+                    Player.Functions.AddItem(item, amount); added = true; return
+                end
+            end
+        end)
     end
-  end)
 
-  -- QBCore
-  if not added then
-    pcall(function()
-      local qb = getQBCore()
-      if qb and qb.Functions and qb.Functions.GetPlayer then
-        local Player = qb.Functions.GetPlayer(src)
-        if Player and Player.Functions and type(Player.Functions.AddItem) == 'function' then
-          Player.Functions.AddItem(item, amount); added = true; return
-        end
-      end
-    end)
-  end
+    -- ox_inventory
+    if not added and exports and exports.ox_inventory then
+        pcall(function()
+            if type(exports.ox_inventory.AddItem) == 'function' then
+                exports.ox_inventory:AddItem(src, item, amount); added = true; return
+            elseif type(exports.ox_inventory.addItem) == 'function' then
+                exports.ox_inventory.addItem(src, item, amount); added = true; return
+            end
+        end)
+    end
 
-  -- ox_inventory
-  if not added and exports and exports.ox_inventory then
-    pcall(function()
-      if type(exports.ox_inventory.AddItem) == 'function' then
-        exports.ox_inventory:AddItem(src, item, amount); added = true; return
-      elseif type(exports.ox_inventory.addItem) == 'function' then
-        exports.ox_inventory.addItem(src, item, amount); added = true; return
-      end
-    end)
-  end
-
-  return added
+    return added
 end
 
 -- Duplicate guard per player
@@ -138,6 +151,12 @@ local function parsePayload(args)
     local p = b
     passedFlag = (p.passed == true) or (p.success == true) or (tostring(p.passed) == 'true')
     stats = p
+  -- Standard format fired by client/ui.lua: (category, token, passed, scorePct)
+  elseif type(a) == 'string' and type(b) == 'string' and type(c) == 'boolean' then
+    cat = tostring(a):lower()
+    passedFlag = (c == true)
+    stats = stats or {}
+    stats.scorePct = tonumber(d)
   end
 
   local total   = tonumber(stats.totalQuestions or stats.total or 0) or 0
@@ -202,21 +221,27 @@ local function onTheoryResult(src, ...)
     sLog(nil, ('theory failed src=%s cat=%s total=%d correct=%d used=%ds'):format(src, cat, st.total or 0, st.correct or 0, st.used or 0))
   end
 
-  -- Client UI events: new + legacy
-  pcall(function()
-    TriggerClientEvent(ev('client:theoryOutcome'), src, passedFlag, st.scorePct or 0, { ts = now, category = cat, errors = {} })
-  end)
-  pcall(function()
-    TriggerClientEvent(ev('client:theoryEnd'), src, {
-      passed = passedFlag,
-      stats = {
-        totalQuestions = st.total or 0,
-        correctAnswers = st.correct or 0,
-        usedSeconds    = st.used or 0,
-        scorePct       = st.scorePct or 0
-      }
-    })
-  end)
+  -- Client UI events: new + legacy.
+  -- Guard: skip if server/main.lua already fired theoryOutcome for this player
+  -- (both scripts handle the same events; main.lua fires first due to load order).
+  local mainTs = (_G._mtj_main_processed_theory and _G._mtj_main_processed_theory[src]) or 0
+  local mainAlreadyHandled = mainTs > 0 and (now - mainTs) < 5000
+  if not mainAlreadyHandled then
+    pcall(function()
+      TriggerClientEvent(ev('client:theoryOutcome'), src, passedFlag, st.scorePct or 0, { ts = now, category = cat, errors = {} })
+    end)
+    pcall(function()
+      TriggerClientEvent(ev('client:theoryEnd'), src, {
+        passed = passedFlag,
+        stats = {
+          totalQuestions = st.total or 0,
+          correctAnswers = st.correct or 0,
+          usedSeconds    = st.used or 0,
+          scorePct       = st.scorePct or 0
+        }
+      })
+    end)
+  end
 end
 
 -- Accept multiple event name variants (camel/snake, de/en)

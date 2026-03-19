@@ -315,6 +315,31 @@ end
 -- Guard duplicate loops
 if _mtj_points_active then dbg('Markers','marker loop already active; skipping') else _mtj_points_active = true end
 
+-- Config cache for the main draw loop (refreshed every ~1 s to avoid reading Config every frame)
+local _mc = { ts = -9999, ok = false }
+local function _refreshMarkerCache()
+    if not (Config and Config.Points) then _mc.ok = false; return end
+    local ui = getMarkerUI()
+    local dd = tonumber((Config and Config.DrawDistance) or 25.0) or 25.0
+    _mc.markerUI     = ui
+    _mc.drawDist     = (ui.drawDistanceMin and math.max(dd, ui.drawDistanceMin)) or dd
+    _mc.interactDist = tonumber((Config and Config.InteractDistance) or 2.0) or 2.0
+    _mc.keyInteract  = tonumber((Config and Config.KeyInteract) or 38) or 38
+    _mc.markerType   = tonumber((Config and Config.MarkerType) or 2) or 2
+    local sc = (Config and Config.MarkerScale) or vec3(1.8,1.8,1.8)
+    local function _rs(s)
+        if type(s)=='table' or type(s)=='userdata' then
+            if s.x then return tonumber(s.x) or 1.8, tonumber(s.y) or 1.8, tonumber(s.z) or 1.8 end
+            if tonumber(s[1]) and tonumber(s[2]) and tonumber(s[3]) then return tonumber(s[1]),tonumber(s[2]),tonumber(s[3]) end
+        end
+        return 1.8,1.8,1.8
+    end
+    _mc.sx, _mc.sy, _mc.sz = _rs(sc)
+    _mc.markerColorCfg = (Config and Config.MarkerColor) or { r=0,g=180,b=255,a=180 }
+    _mc.ts = nowMs()
+    _mc.ok = true
+end
+
 -- Main loop
 CreateThread(function()
   local deadline = nowMs() + 8000
@@ -323,28 +348,25 @@ CreateThread(function()
   while true do
     Wait(0)
     if not (Config and Config.Points) then Wait(500) else
-      local markerUI = getMarkerUI()
-      local drawDistCfg = tonumber((Config and Config.DrawDistance) or 25.0) or 25.0
-      local drawDist = (markerUI.drawDistanceMin and math.max(drawDistCfg, markerUI.drawDistanceMin)) or drawDistCfg
-      local interactDist = tonumber((Config and Config.InteractDistance) or 2.0) or 2.0
-      local keyInteract = tonumber((Config and Config.KeyInteract) or 38) or 38
-      local markerType = tonumber((Config and Config.MarkerType) or 2) or 2
-      local markerScaleCfg = (Config and Config.MarkerScale) or vec3(1.8,1.8,1.8)
-      local markerColorCfg = (Config and Config.MarkerColor) or { r=0,g=180,b=255,a=180 }
+      -- Refresh cached config at most once per second
+      local t = nowMs()
+      if (t - _mc.ts) >= 1000 then _refreshMarkerCache() end
+      if not _mc.ok then Wait(200) else
 
-      local function readScale(s)
-        if type(s)=='table' or type(s)=='userdata' then
-          if s.x then return tonumber(s.x) or 1.8, tonumber(s.y) or 1.8, tonumber(s.z) or 1.8 end
-          if tonumber(s[1]) and tonumber(s[2]) and tonumber(s[3]) then return tonumber(s[1]), tonumber(s[2]), tonumber(s[3]) end
-        end
-        return 1.8,1.8,1.8
-      end
-      local sx,sy,sz = readScale(markerScaleCfg)
+      local markerUI      = _mc.markerUI
+      local drawDist      = _mc.drawDist
+      local interactDist  = _mc.interactDist
+      local keyInteract   = _mc.keyInteract
+      local markerType    = _mc.markerType
+      local sx, sy, sz    = _mc.sx, _mc.sy, _mc.sz
+      local markerColorCfg = _mc.markerColorCfg
 
-      local ped = PlayerPedId(); local px,py,pz = table.unpack(GetEntityCoords(ped))
+      local ped = PlayerPedId(); local pos = GetEntityCoords(ped); local px,py,pz = pos.x,pos.y,pos.z
       local pts = { booking = Config.Points.booking, theory = Config.Points.theory, practice = Config.Points.practice }
 
-      if Config and Config.IdealLine and Config.IdealLine.enabled == true then
+      -- Ideal line only during active practice to save CPU
+      if _mtj_practice_watch and _mtj_practice_watch.active
+          and Config and Config.IdealLine and Config.IdealLine.enabled then
         local cat = selectedCat or 'car'
         drawIdealLineForCategory(cat, markerUI)
       end
@@ -414,6 +436,7 @@ CreateThread(function()
           end
         end
       end
+      end -- if _mc.ok
     end
   end
 end)
