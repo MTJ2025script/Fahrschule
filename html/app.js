@@ -561,7 +561,8 @@ function optText(opt){ try{ if (opt==null) return ''; if (['string','number','bo
 function correctIndicesFromQ(q, opts){
   try{
     const byFlag = [];
-    for (let i=0;i<opts.length;i++){ const o=opts[i]; if (o && typeof o==='object' && (o.correct===true || o.isCorrect===true)) byFlag.push(i); }
+    // Support { correct: true }, { isCorrect: true }, AND { key: 'correct' } formats
+    for (let i=0;i<opts.length;i++){ const o=opts[i]; if (o && typeof o==='object' && (o.correct===true || o.isCorrect===true || o.key==='correct')) byFlag.push(i); }
     if (byFlag.length) return byFlag;
     const c = (q && (q.c || q.correct || q.correctIndex || q.correctAnswers || q.solution));
     if (typeof c==='number') return [c];

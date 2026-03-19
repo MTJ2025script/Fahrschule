@@ -138,6 +138,12 @@ local function parsePayload(args)
     local p = b
     passedFlag = (p.passed == true) or (p.success == true) or (tostring(p.passed) == 'true')
     stats = p
+  -- Standard format fired by client/ui.lua: (category, token, passed, scorePct)
+  elseif type(a) == 'string' and type(b) == 'string' and type(c) == 'boolean' then
+    cat = tostring(a):lower()
+    passedFlag = (c == true)
+    stats = stats or {}
+    stats.scorePct = tonumber(d)
   end
 
   local total   = tonumber(stats.totalQuestions or stats.total or 0) or 0
@@ -202,21 +208,27 @@ local function onTheoryResult(src, ...)
     sLog(nil, ('theory failed src=%s cat=%s total=%d correct=%d used=%ds'):format(src, cat, st.total or 0, st.correct or 0, st.used or 0))
   end
 
-  -- Client UI events: new + legacy
-  pcall(function()
-    TriggerClientEvent(ev('client:theoryOutcome'), src, passedFlag, st.scorePct or 0, { ts = now, category = cat, errors = {} })
-  end)
-  pcall(function()
-    TriggerClientEvent(ev('client:theoryEnd'), src, {
-      passed = passedFlag,
-      stats = {
-        totalQuestions = st.total or 0,
-        correctAnswers = st.correct or 0,
-        usedSeconds    = st.used or 0,
-        scorePct       = st.scorePct or 0
-      }
-    })
-  end)
+  -- Client UI events: new + legacy.
+  -- Guard: skip if server/main.lua already fired theoryOutcome for this player
+  -- (both scripts handle the same events; main.lua fires first due to load order).
+  local mainTs = (_G._mtj_main_processed_theory and _G._mtj_main_processed_theory[src]) or 0
+  local mainAlreadyHandled = mainTs > 0 and (now - mainTs) < 5000
+  if not mainAlreadyHandled then
+    pcall(function()
+      TriggerClientEvent(ev('client:theoryOutcome'), src, passedFlag, st.scorePct or 0, { ts = now, category = cat, errors = {} })
+    end)
+    pcall(function()
+      TriggerClientEvent(ev('client:theoryEnd'), src, {
+        passed = passedFlag,
+        stats = {
+          totalQuestions = st.total or 0,
+          correctAnswers = st.correct or 0,
+          usedSeconds    = st.used or 0,
+          scorePct       = st.scorePct or 0
+        }
+      })
+    end)
+  end
 end
 
 -- Accept multiple event name variants (camel/snake, de/en)

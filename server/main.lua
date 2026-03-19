@@ -763,6 +763,9 @@ local function handleTheoryResultCore(src, category, token, passed, pct)
     end
 
     lastTheoryById[identifier] = { ts = nowSecs(), category = cat, scorePct = score, passed = passedBool }
+    -- Mark this source as processed so server/theorie_result.lua skips firing duplicate client events
+    _G._mtj_main_processed_theory = _G._mtj_main_processed_theory or {}
+    _G._mtj_main_processed_theory[src] = GetGameTimer()
     TriggerClientEvent(RESOURCE..':client:theoryOutcome', src, passedBool, score, { ts = nowSecs(), category = cat, scorePct = score })
     TriggerClientEvent(RESOURCE..':client:stateSync', src, { category = nil, token = nil, lastTheory = lastTheoryById[identifier] })
     log('theory '..(passedBool and 'passed' or 'failed')..' src='..src..' cat='..tostring(cat)..' score='..score)
